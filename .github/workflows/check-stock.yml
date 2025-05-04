@@ -40,11 +40,3 @@ jobs:
           PASSWORD: ${{ secrets.PASSWORD }}
           PRODUCT_NAME: ${{ github.event.inputs.product-name }}
         run: node check-stock.js
-
-      - name: Upload screenshots as artifacts
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: screenshots
-          path: screenshots/
-          retention-days: 3
