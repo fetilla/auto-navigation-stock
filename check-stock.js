@@ -90,6 +90,10 @@ async function checkProductStock() {
     await debugScreenshot("dashboard");
 
     // Search for the product
+    // Wait for the search input field to be visible and ready
+    console.log("Waiting for search input to be available...");
+    await page.waitForSelector("input#material", { state: "visible", timeout: 30000 });
+    await debugScreenshot("search-input-available");
     console.log(`Searching for ${PRODUCT_NAME}...`);
     await page.fill("input#material", PRODUCT_NAME);
     await page.press("input#material", "Enter");
