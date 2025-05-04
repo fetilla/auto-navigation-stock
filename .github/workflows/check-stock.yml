@@ -1,0 +1,50 @@
+name: Check Stock Availability
+
+on:
+  schedule:
+    # Run every 15 minutes between 8-11 AM Madrid time (6-9 AM UTC during summer, 7-10 AM UTC during winter)
+    - cron: "*/15 6,7,8,9 * * *"
+  workflow_dispatch:
+    inputs:
+      product-name:
+        description: "Product name to check (e.g., ozempic, adiro)"
+        required: false
+        default: "ozempic"
+        type: string
+
+jobs:
+  check-stock:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright
+        run: npx playwright install chromium --with-deps
+
+      - name: Create screenshots directory
+        run: mkdir -p screenshots
+
+      - name: Run stock checker
+        env:
+          USERNAME: ${{ secrets.USERNAME }}
+          PASSWORD: ${{ secrets.PASSWORD }}
+          PRODUCT_NAME: ${{ github.event.inputs.product-name }}
+        run: node check-stock.js
+
+      - name: Upload screenshots as artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: screenshots
+          path: screenshots/
+          retention-days: 3
