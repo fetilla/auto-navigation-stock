@@ -41,4 +41,5 @@ jobs:
           PRODUCT_NAME: ${{ github.event.inputs.product-name }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          ENABLE_TELEGRAM: "true"
         run: node check-stock.js
