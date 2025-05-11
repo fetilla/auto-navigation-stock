@@ -1,5 +1,6 @@
 const { chromium } = require("playwright");
 require("dotenv").config();
+const axios = require("axios"); // Added for Telegram notifications
 
 // Environment variables
 const USERNAME = process.env.USERNAME;
@@ -11,6 +12,36 @@ const SCREENSHOTS_DIR = process.env.SCREENSHOTS_DIR || "./screenshots";
 const TABLE_LOAD_DELAY = process.env.TABLE_LOAD_DELAY
   ? parseInt(process.env.TABLE_LOAD_DELAY)
   : 3000; // Default delay of 3 seconds
+
+// Telegram Bot Configuration
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+const ENABLE_TELEGRAM = process.env.ENABLE_TELEGRAM === "true";
+
+// Function to send Telegram message
+async function sendTelegramMessage(message) {
+  if (!ENABLE_TELEGRAM || !TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+    console.log("Telegram notifications not configured or disabled.");
+    return;
+  }
+
+  try {
+    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+    const response = await axios.post(url, {
+      chat_id: TELEGRAM_CHAT_ID,
+      text: message,
+      parse_mode: "HTML",
+    });
+
+    if (response.data.ok) {
+      console.log("✅ Telegram notification sent successfully!");
+    } else {
+      console.error("Failed to send Telegram notification:", response.data);
+    }
+  } catch (error) {
+    console.error("Error sending Telegram notification:", error.message);
+  }
+}
 
 // Check if credentials are provided
 if (!USERNAME || !PASSWORD) {
@@ -92,7 +123,10 @@ async function checkProductStock() {
     // Search for the product
     // Wait for the search input field to be visible and ready
     console.log("Waiting for search input to be available...");
-    await page.waitForSelector("input#material", { state: "visible", timeout: 30000 });
+    await page.waitForSelector("input#material", {
+      state: "visible",
+      timeout: 30000,
+    });
     await debugScreenshot("search-input-available");
     console.log(`Searching for ${PRODUCT_NAME}...`);
     await page.fill("input#material", PRODUCT_NAME);
@@ -200,11 +234,20 @@ async function checkProductStock() {
 
     if (!foundStock) {
       console.log(`❌ No stock available for ${PRODUCT_NAME} at this time.`);
+      await sendTelegramMessage(
+        `❌ No stock available for <b>${PRODUCT_NAME}</b> at this time.`
+      );
     } else {
       console.log(`✅ Found ${PRODUCT_NAME} in stock and added to cart!`);
+      await sendTelegramMessage(
+        `🎉 <b>STOCK FOUND!</b> 🎉\n\n✅ Found <b>${PRODUCT_NAME}</b> in stock and added to cart!\n\nCheck your Hefame account to complete the order.`
+      );
     }
   } catch (error) {
     console.error("An error occurred:", error);
+    await sendTelegramMessage(
+      `⚠️ <b>ERROR:</b> An error occurred while checking stock for <b>${PRODUCT_NAME}</b>: ${error.message}`
+    );
     if (DEBUG_MODE) {
       // Take a screenshot of the error state
       try {

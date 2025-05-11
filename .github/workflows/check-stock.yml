@@ -2,7 +2,7 @@ name: Check Stock Availability
 
 on:
   schedule:
-    - cron: "*/5 6-8 * * *"  # This covers both the 6-7 hour range and the first 30 minutes of hour 8
+    - cron: "*/5 6-8 * * *" # This covers both the 6-7 hour range and the first 30 minutes of hour 8
   workflow_dispatch:
     inputs:
       product-name:
@@ -39,4 +39,6 @@ jobs:
           USERNAME: ${{ secrets.USERNAME }}
           PASSWORD: ${{ secrets.PASSWORD }}
           PRODUCT_NAME: ${{ github.event.inputs.product-name }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: node check-stock.js
