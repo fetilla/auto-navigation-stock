@@ -2,8 +2,7 @@ name: Check Stock Availability
 
 on:
   schedule:
-    # Run every 15 minutes between 8-11 AM Madrid time (6-9 AM UTC during summer, 7-10 AM UTC during winter)
-    - cron: "*/15 6,7,8,9 * * *"
+    - cron: "*/5 6-8 * * *"  # This covers both the 6-7 hour range and the first 30 minutes of hour 8
   workflow_dispatch:
     inputs:
       product-name:
