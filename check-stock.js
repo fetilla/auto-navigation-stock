@@ -51,37 +51,6 @@ if (!USERNAME || !PASSWORD) {
   process.exit(1);
 }
 
-// Function to evaluate if a product has stock based on both visual indicators and button state
-async function hasStock(row) {
-  try {
-    // Check if stock cell has "sinStock" class which indicates no stock
-    const stockCell = await row.$("td.sinStock");
-    if (stockCell) {
-      const hasEscasoClass = await stockCell.evaluate((el) =>
-        el.classList.contains("escaso")
-      );
-      console.log(
-        `Stock status: ${hasEscasoClass ? "Escaso (limited)" : "No stock"}`
-      );
-
-      // Even if marked as "escaso", we should check if buttons are enabled
-      const plusButton = await row.$("ion-icon.plus-btn:not(.disabled)");
-      const addButton = await row.$("button.comprarapida:not(.disabled)");
-
-      return plusButton !== null || addButton !== null;
-    }
-
-    // If no "sinStock" class is found, check for active buttons
-    const plusButton = await row.$("ion-icon.plus-btn:not(.disabled)");
-    const addButton = await row.$("button.comprarapida:not(.disabled)");
-
-    return plusButton !== null || addButton !== null;
-  } catch (error) {
-    console.error("Error checking stock:", error);
-    return false;
-  }
-}
-
 async function checkProductStock() {
   console.log(`Starting ${PRODUCT_NAME} stock check...`);
   console.log(`Debug mode: ${DEBUG_MODE ? "ON" : "OFF"}`);
@@ -166,7 +135,7 @@ async function checkProductStock() {
 
     // Wait for results table to load
     console.log("Waiting for search results...");
-    await page.waitForSelector("table#listado_limitados", { timeout: 30000 });
+    await page.waitForSelector("table#datosTabla", { timeout: 30000 });
     await debugScreenshot("search-results");
 
     // Adding a delay to ensure the table fully loads
@@ -176,118 +145,49 @@ async function checkProductStock() {
     await page.waitForTimeout(TABLE_LOAD_DELAY);
 
     // Check if any product is available
-    const rows = await page.$$("table#listado_limitados tbody tr");
+    const rows = await page.$$("table#datosTabla tbody tr");
     console.log(`Found ${rows.length} results in the table.`);
 
     let foundStock = false;
 
     // Process each row
     for (const row of rows) {
-      try {
-        // Get product name and details from the row for better logging
-        const productNameCell = await row.$("td:nth-child(4)");
-        const productName = productNameCell
-          ? await productNameCell.textContent()
-          : "Unknown product";
-        const codeNationalCell = await row.$("td:nth-child(3)");
-        const codeNational = codeNationalCell
-          ? await codeNationalCell
-              .textContent()
-              .then((text) => text.trim().split("\n")[0])
-          : "Unknown";
+      // Check if the row has an "Add to cart" button
+      const addToCartCell = await row.$("td:nth-child(3)");
 
-        console.log(`Checking product: ${productName} (CN: ${codeNational})`);
+      if (addToCartCell) {
+        // Look for the image inside the cell and check its title
+        const addButton = await addToCartCell.$("img");
 
-        // Check if product has stock using our helper function
-        const productHasStock = await hasStock(row);
+        if (addButton) {
+          const title = await addButton.getAttribute("title");
+          console.log(`Found button with title: ${title || "no title"}`);
 
-        if (productHasStock) {
-          console.log(`✅ Found product with available stock: ${productName}`);
-
-          // Find the quantity input
-          const quantityInput = await row.$("input[type='number']");
-
-          if (quantityInput) {
-            // Check if input is disabled
-            const isInputDisabled = await quantityInput.evaluate(
-              (el) => el.disabled
+          if (title === "Agrega los productos a la cubeta.") {
+            // Find the quantity input in the second column
+            const quantityInputs = await row.$$(
+              'input[name^="cantidad_pedir_"]'
             );
-            if (isInputDisabled) {
-              console.log("Quantity input is disabled, cannot add to cart");
-              continue;
+
+            if (quantityInputs.length > 0) {
+              // Set quantity to 1
+              await quantityInputs[0].fill("1");
+              await debugScreenshot("quantity-filled");
+
+              // Click the "Add to cart" button/image
+              await addButton.click();
+              await debugScreenshot("added-to-cart");
+              console.log("✅ Product added to cart!");
+
+              foundStock = true;
             }
-
-            // Set quantity to 1
-            await quantityInput.fill("1");
-            await debugScreenshot(`quantity-filled-${codeNational}`);
-
-            // Try to click the "Añadir" button up to 3 times
-            const addButton = await row.$("button:text('Añadir')");
-            if (addButton) {
-              const isAddButtonDisabled = await addButton.evaluate(
-                (el) => el.disabled
-              );
-
-              if (!isAddButtonDisabled) {
-                let addSuccess = false;
-                // Try up to 3 times to add the product to the cart
-                for (let attempt = 1; attempt <= 3; attempt++) {
-                  try {
-                    console.log(
-                      `Attempt ${attempt} to add ${productName} to cart...`
-                    );
-                    await addButton.click();
-                    await debugScreenshot(
-                      `added-to-cart-attempt-${attempt}-${codeNational}`
-                    );
-
-                    // Wait a moment for the cart to update
-                    await page.waitForTimeout(1000);
-
-                    console.log(
-                      `✅ Product ${productName} (${codeNational}) added to cart on attempt ${attempt}!`
-                    );
-                    addSuccess = true;
-                    foundStock = true;
-                    break;
-                  } catch (addError) {
-                    console.error(
-                      `Error on attempt ${attempt} adding to cart:`,
-                      addError.message
-                    );
-                    if (attempt < 3) {
-                      console.log(`Waiting 2 seconds before next attempt...`);
-                      await page.waitForTimeout(2000);
-                    }
-                  }
-                }
-
-                if (!addSuccess) {
-                  console.log(
-                    `❌ Failed to add ${productName} to cart after 3 attempts`
-                  );
-                }
-                continue;
-              } else {
-                console.log(`"Añadir" button is disabled for ${productName}`);
-              }
-            } else {
-              console.log(`Could not find "Añadir" button for ${productName}`);
-            }
-
-            console.log(
-              "Button is disabled or not found despite stock indicator showing availability"
-            );
           } else {
-            console.log("Could not find quantity input");
+            // Log what we found for debugging
+            console.log(`Found button but title doesn't match: "${title}"`);
           }
         } else {
-          console.log(
-            `No stock available for: ${productName} (${codeNational})`
-          );
+          console.log("No img found in the third column cell");
         }
-      } catch (rowError) {
-        console.error("Error processing row:", rowError);
       }
     }
 
