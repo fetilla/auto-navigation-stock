@@ -200,6 +200,14 @@ async function checkProductStock() {
               .then((text) => text.trim().split("\n")[0])
           : "Unknown";
 
+        // Skip 0,25 type
+        if (productName && productName.includes("0,25")) {
+          console.log(
+            `⚠️ Skipping product with PLUMA PRECARGADA: ${productName} (CN: ${codeNational})`
+          );
+          continue;
+        }
+
         console.log(`Checking product: ${productName} (CN: ${codeNational})`);
 
         // Check if product has stock using our helper function
