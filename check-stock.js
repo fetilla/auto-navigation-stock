@@ -161,7 +161,11 @@ async function checkProductStock() {
     await debugScreenshot("search-input-available");
     console.log(`Searching for ${PRODUCT_NAME}...`);
     await page.fill("input#material", PRODUCT_NAME);
-    await page.press("input#material", "Enter");
+
+    // Click the "Buscador rápido" button instead of pressing Enter
+    console.log("Clicking 'Buscador rápido' button...");
+    await page.waitForSelector("button#rapido", { timeout: 10000 });
+    await page.click("button#rapido");
     await debugScreenshot("search-entered");
 
     // Wait for results table to load
